@@ -1,1 +1,182 @@
+name: Create ACFA Poll
 
+on:
+  workflow_dispatch:
+    inputs:
+      question:
+        description: "Poll question"
+        required: true
+        type: string
+
+      option_1:
+        description: "Option 1"
+        required: true
+        type: string
+
+      option_2:
+        description: "Option 2"
+        required: true
+        type: string
+
+      option_3:
+        description: "Option 3"
+        required: false
+        type: string
+
+      option_4:
+        description: "Option 4"
+        required: false
+        type: string
+
+      closes_at:
+        description: "Closing date and time, example: 2026-07-20T22:00:00-05:00"
+        required: true
+        type: string
+
+      show_live_results:
+        description: "Show results while voting is open?"
+        required: true
+        default: true
+        type: boolean
+
+jobs:
+  create-poll:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Validate closing date
+        shell: bash
+        env:
+          CLOSES_AT: ${{ inputs.closes_at }}
+        run: |
+          node - <<'NODE'
+          const closesAt = process.env.CLOSES_AT;
+          const parsed = Date.parse(closesAt);
+
+          if (Number.isNaN(parsed)) {
+            console.error(
+              "Invalid closing date. Use ISO format, such as " +
+              "2026-07-20T22:00:00-05:00"
+            );
+            process.exit(1);
+          }
+
+          if (parsed <= Date.now()) {
+            console.error("The poll closing time must be in the future.");
+            process.exit(1);
+          }
+
+          console.log("Closing date is valid:", new Date(parsed).toISOString());
+          NODE
+
+      - name: Create poll and options
+        shell: bash
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+          QUESTION: ${{ inputs.question }}
+          OPTION_1: ${{ inputs.option_1 }}
+          OPTION_2: ${{ inputs.option_2 }}
+          OPTION_3: ${{ inputs.option_3 }}
+          OPTION_4: ${{ inputs.option_4 }}
+          CLOSES_AT: ${{ inputs.closes_at }}
+          SHOW_LIVE_RESULTS: ${{ inputs.show_live_results }}
+        run: |
+          node - <<'NODE'
+          const required = [
+            "SUPABASE_URL",
+            "SUPABASE_SECRET_KEY",
+            "QUESTION",
+            "OPTION_1",
+            "OPTION_2",
+            "CLOSES_AT"
+          ];
+
+          for (const name of required) {
+            if (!process.env[name]?.trim()) {
+              console.error(`Missing required value: ${name}`);
+              process.exit(1);
+            }
+          }
+
+          const baseUrl = process.env.SUPABASE_URL.replace(/\/+$/, "");
+          const secretKey = process.env.SUPABASE_SECRET_KEY;
+
+          const headers = {
+            apikey: secretKey,
+            Authorization: `Bearer ${secretKey}`,
+            "Content-Type": "application/json",
+            Prefer: "return=representation"
+          };
+
+          async function request(path, options = {}) {
+            const response = await fetch(`${baseUrl}/rest/v1/${path}`, {
+              ...options,
+              headers: {
+                ...headers,
+                ...(options.headers || {})
+              }
+            });
+
+            const text = await response.text();
+            let data = null;
+
+            if (text) {
+              try {
+                data = JSON.parse(text);
+              } catch {
+                data = text;
+              }
+            }
+
+            if (!response.ok) {
+              console.error(`Supabase request failed: ${response.status}`);
+              console.error(data);
+              process.exit(1);
+            }
+
+            return data;
+          }
+
+          const pollRows = await request("polls", {
+            method: "POST",
+            body: JSON.stringify({
+              question: process.env.QUESTION.trim(),
+              status: "open",
+              opens_at: new Date().toISOString(),
+              closes_at: new Date(process.env.CLOSES_AT).toISOString(),
+              show_live_results:
+                process.env.SHOW_LIVE_RESULTS.toLowerCase() === "true"
+            })
+          });
+
+          const poll = pollRows?.[0];
+
+          if (!poll?.id) {
+            console.error("Supabase did not return the new poll ID.");
+            process.exit(1);
+          }
+
+          const optionTexts = [
+            process.env.OPTION_1,
+            process.env.OPTION_2,
+            process.env.OPTION_3,
+            process.env.OPTION_4
+          ]
+            .map(value => value?.trim())
+            .filter(Boolean);
+
+          const options = optionTexts.map((optionText, index) => ({
+            poll_id: poll.id,
+            option_text: optionText,
+            display_order: index + 1
+          }));
+
+          await request("poll_options", {
+            method: "POST",
+            body: JSON.stringify(options)
+          });
+
+          console.log(`Created poll ${poll.id}: ${poll.question}`);
+          console.log(`Added ${options.length} poll options.`);
+          NODE
