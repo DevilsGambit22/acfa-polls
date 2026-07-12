@@ -1,1 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
+<title>ACFA Community Poll</title>
+
+<link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+<div class="poll-card">
+
+    <div class="header">
+        COMMUNITY POLL
+    </div>
+
+    <div id="question" class="question">
+        Loading poll...
+    </div>
+
+    <div id="options" class="options">
+    </div>
+
+    <button id="voteButton" disabled>
+        Vote
+    </button>
+
+    <div id="countdown" class="countdown">
+        Loading...
+    </div>
+
+    <div id="results" class="results">
+    </div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="app.js"></script>
+
+</body>
+</html>
