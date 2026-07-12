@@ -1,1 +1,262 @@
+:root {
+  --bg: #070604;
+  --panel: #11100d;
+  --panel-soft: #18150f;
+  --gold: #d6a84b;
+  --gold-light: #f0d38a;
+  --bronze: #9b6a2f;
+  --text: #f7f0df;
+  --muted: #b9ad91;
+  --border: rgba(214, 168, 75, 0.55);
+  --shadow: rgba(0, 0, 0, 0.55);
+}
 
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  min-height: 100%;
+  background: transparent;
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+body {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 10px;
+  color: var(--text);
+}
+
+.poll-card {
+  width: 100%;
+  max-width: 680px;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at top, rgba(214, 168, 75, 0.08), transparent 35%),
+    linear-gradient(180deg, var(--panel-soft), var(--bg));
+  border: 2px solid var(--gold);
+  border-radius: 18px;
+  box-shadow:
+    0 12px 30px var(--shadow),
+    0 0 18px rgba(214, 168, 75, 0.18);
+}
+
+.header {
+  padding: 14px 18px;
+  background: linear-gradient(90deg, var(--bronze), var(--gold), var(--bronze));
+  color: #160f05;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 900;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+}
+
+.question {
+  padding: 24px 22px 16px;
+  text-align: center;
+  font-size: clamp(20px, 4vw, 28px);
+  line-height: 1.3;
+  font-weight: 800;
+  color: var(--gold-light);
+}
+
+.options {
+  display: grid;
+  gap: 12px;
+  padding: 8px 20px 20px;
+}
+
+.option {
+  position: relative;
+}
+
+.option input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.option label {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 15px 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.025);
+  color: var(--text);
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    transform 0.18s ease,
+    border-color 0.18s ease,
+    background 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.option label::before {
+  content: "";
+  flex: 0 0 20px;
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--gold);
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 4px var(--panel);
+}
+
+.option label:hover {
+  transform: translateY(-1px);
+  border-color: var(--gold-light);
+  background: rgba(214, 168, 75, 0.08);
+}
+
+.option input:checked + label {
+  border-color: var(--gold-light);
+  background: rgba(214, 168, 75, 0.13);
+  box-shadow: 0 0 14px rgba(214, 168, 75, 0.15);
+}
+
+.option input:checked + label::before {
+  background: var(--gold);
+}
+
+#voteButton {
+  display: block;
+  width: calc(100% - 40px);
+  margin: 0 20px 14px;
+  padding: 15px 18px;
+  border: 0;
+  border-radius: 12px;
+  background: linear-gradient(90deg, var(--bronze), var(--gold));
+  color: #160f05;
+  font-size: 16px;
+  font-weight: 900;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition:
+    transform 0.18s ease,
+    filter 0.18s ease,
+    opacity 0.18s ease;
+}
+
+#voteButton:hover:not(:disabled) {
+  transform: translateY(-1px);
+  filter: brightness(1.08);
+}
+
+#voteButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.countdown {
+  padding: 0 20px 18px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.results {
+  display: grid;
+  gap: 12px;
+  padding: 0 20px 22px;
+}
+
+.result-row {
+  padding: 12px 14px;
+  border: 1px solid rgba(214, 168, 75, 0.28);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.result-topline {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.result-bar {
+  height: 10px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.result-fill {
+  height: 100%;
+  width: 0;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--bronze), var(--gold-light));
+  transition: width 0.5s ease;
+}
+
+.status-message {
+  padding: 18px 20px 22px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.success-message {
+  color: var(--gold-light);
+  font-weight: 800;
+}
+
+.error-message {
+  color: #ffb4b4;
+  font-weight: 800;
+}
+
+@media (max-width: 520px) {
+  body {
+    padding: 6px;
+  }
+
+  .poll-card {
+    border-radius: 14px;
+  }
+
+  .header {
+    padding: 12px 14px;
+    font-size: 12px;
+    letter-spacing: 2px;
+  }
+
+  .question {
+    padding: 20px 16px 14px;
+    font-size: 21px;
+  }
+
+  .options,
+  .results {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+
+  #voteButton {
+    width: calc(100% - 28px);
+    margin-left: 14px;
+    margin-right: 14px;
+  }
+
+  .option label {
+    padding: 14px;
+    font-size: 15px;
+  }
+}
