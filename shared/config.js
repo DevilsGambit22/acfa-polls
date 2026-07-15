@@ -1,3 +1,3 @@
-// Add your Supabase values here before publishing.
-window.ACFA_SUPABASE_URL = "YOUR_SUPABASE_PROJECT_URL";
-window.ACFA_SUPABASE_KEY = "YOUR_SUPABASE_PUBLISHABLE_KEY";
+const SUPABASE_URL = "https://leryhqzhrdkrfsdqbmch.supabase.co";
+const SUPABASE_PUBLISHABLE_KEY =
+  "sb_publishable_TSAqo3OxVgP97n2b7yeQCw_zuBWltp8";
