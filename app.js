@@ -1,23 +1,15 @@
 "use strict";
 
-/* =========================================================
-   ACFA COMMUNITY POLL
-   ========================================================= */
-
-const SUPABASE_URL =
-  "https://leryhqzhrdkrfsdqbmch.supabase.co";
-
+const SUPABASE_URL = "https://leryhqzhrdkrfsdqbmch.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY =
   "sb_publishable_TSAqo3OxVgP97n2b7yeQCw_zuBWltp8";
+
+const CENTRAL_TIME_ZONE = "America/Chicago";
 
 const supabaseClient = window.supabase.createClient(
   SUPABASE_URL,
   SUPABASE_PUBLISHABLE_KEY
 );
-
-/* =========================================================
-   PAGE ELEMENTS
-   ========================================================= */
 
 const questionElement = document.getElementById("question");
 const optionsElement = document.getElementById("options");
@@ -25,19 +17,13 @@ const voteButton = document.getElementById("voteButton");
 const countdownElement = document.getElementById("countdown");
 const resultsElement = document.getElementById("results");
 
-/* =========================================================
-   STATE
-   ========================================================= */
-
 let currentPoll = null;
 let currentOptions = [];
 let selectedOptionId = null;
+let recordedOptionId = null;
+let voterKey = null;
 let countdownTimer = null;
 let resultsRefreshTimer = null;
-
-/* =========================================================
-   VOTER IDENTIFICATION
-   ========================================================= */
 
 function createFallbackId() {
   return (
@@ -52,25 +38,22 @@ function getVoterKey() {
   const storageName = "acfa_poll_voter_key";
 
   try {
-    let voterKey = localStorage.getItem(storageName);
+    let key = localStorage.getItem(storageName);
 
-    if (!voterKey) {
-      if (
+    if (!key) {
+      key =
         window.crypto &&
         typeof window.crypto.randomUUID === "function"
-      ) {
-        voterKey = window.crypto.randomUUID();
-      } else {
-        voterKey = createFallbackId();
-      }
+          ? window.crypto.randomUUID()
+          : createFallbackId();
 
-      localStorage.setItem(storageName, voterKey);
+      localStorage.setItem(storageName, key);
     }
 
-    return voterKey;
+    return key;
   } catch (error) {
     console.warn(
-      "Local storage is unavailable. Using temporary voter ID.",
+      "Local storage unavailable; using a temporary voter key.",
       error
     );
 
@@ -78,42 +61,8 @@ function getVoterKey() {
   }
 }
 
-function getVoteStorageName(pollId) {
-  return "acfa_poll_voted_" + pollId;
-}
-
-function hasVotedLocally(pollId) {
-  try {
-    return (
-      localStorage.getItem(getVoteStorageName(pollId)) ===
-      "true"
-    );
-  } catch (error) {
-    return false;
-  }
-}
-
-function rememberVote(pollId) {
-  try {
-    localStorage.setItem(
-      getVoteStorageName(pollId),
-      "true"
-    );
-  } catch (error) {
-    console.warn(
-      "Unable to save local voting status.",
-      error
-    );
-  }
-}
-
-/* =========================================================
-   POLL STATUS
-   ========================================================= */
-
 function getTimeValue(value) {
   const time = new Date(value).getTime();
-
   return Number.isFinite(time) ? time : 0;
 }
 
@@ -123,14 +72,16 @@ function isPollOpen() {
   }
 
   const now = Date.now();
-  const opensAt = getTimeValue(currentPoll.opens_at);
-  const closesAt = getTimeValue(currentPoll.closes_at);
 
   return (
-    currentPoll.status === "open" &&
-    now >= opensAt &&
-    now < closesAt
+    now >= getTimeValue(currentPoll.opens_at) &&
+    now < getTimeValue(currentPoll.closes_at) &&
+    currentPoll.status !== "archived"
   );
+}
+
+function hasRecordedVote() {
+  return recordedOptionId !== null;
 }
 
 function shouldDisplayResults() {
@@ -141,16 +92,13 @@ function shouldDisplayResults() {
   return (
     currentPoll.show_live_results === true ||
     !isPollOpen() ||
-    hasVotedLocally(currentPoll.id)
+    hasRecordedVote()
   );
 }
 
-/* =========================================================
-   INITIALIZATION
-   ========================================================= */
-
 async function initializePoll() {
   showLoadingState();
+  voterKey = getVoterKey();
 
   try {
     await loadCurrentPoll();
@@ -163,31 +111,50 @@ async function initializePoll() {
   }
 }
 
-/* =========================================================
-   LOAD CURRENT POLL
-   ========================================================= */
-
 async function loadCurrentPoll() {
-  const pollResponse = await supabaseClient
+  const nowIso = new Date().toISOString();
+
+  const activeResponse = await supabaseClient
     .from("polls")
     .select("*")
-    .in("status", ["open", "closed"])
-    .order("created_at", { ascending: false })
+    .lte("opens_at", nowIso)
+    .gt("closes_at", nowIso)
+    .neq("status", "archived")
+    .order("opens_at", { ascending: false })
     .limit(1);
 
-  if (pollResponse.error) {
-    throw pollResponse.error;
+  if (activeResponse.error) {
+    throw activeResponse.error;
   }
 
-  if (
-    !Array.isArray(pollResponse.data) ||
-    pollResponse.data.length === 0
-  ) {
+  let poll = Array.isArray(activeResponse.data)
+    ? activeResponse.data[0]
+    : null;
+
+  if (!poll) {
+    const latestResponse = await supabaseClient
+      .from("polls")
+      .select("*")
+      .lte("closes_at", nowIso)
+      .neq("status", "archived")
+      .order("closes_at", { ascending: false })
+      .limit(1);
+
+    if (latestResponse.error) {
+      throw latestResponse.error;
+    }
+
+    poll = Array.isArray(latestResponse.data)
+      ? latestResponse.data[0]
+      : null;
+  }
+
+  if (!poll) {
     showNoPoll();
     return;
   }
 
-  currentPoll = pollResponse.data[0];
+  currentPoll = poll;
 
   const optionsResponse = await supabaseClient
     .from("poll_options")
@@ -209,6 +176,7 @@ async function loadCurrentPoll() {
     );
   }
 
+  await loadExistingVote();
   renderPoll();
   startCountdown();
   startResultsRefresh();
@@ -218,19 +186,37 @@ async function loadCurrentPoll() {
   }
 }
 
-/* =========================================================
-   RENDER POLL
-   ========================================================= */
+async function loadExistingVote() {
+  recordedOptionId = null;
+
+  const response = await supabaseClient
+    .from("votes")
+    .select("option_id")
+    .eq("poll_id", currentPoll.id)
+    .eq("voter_key", voterKey)
+    .maybeSingle();
+
+  if (response.error) {
+    throw response.error;
+  }
+
+  if (
+    response.data &&
+    response.data.option_id !== null &&
+    response.data.option_id !== undefined
+  ) {
+    recordedOptionId = Number(response.data.option_id);
+  }
+}
 
 function renderPoll() {
   questionElement.textContent = currentPoll.question;
   optionsElement.innerHTML = "";
   resultsElement.innerHTML = "";
-
   selectedOptionId = null;
 
   const pollOpen = isPollOpen();
-  const alreadyVoted = hasVotedLocally(currentPoll.id);
+  const alreadyVoted = hasRecordedVote();
 
   currentOptions.forEach(function (option) {
     const wrapper = document.createElement("div");
@@ -242,17 +228,22 @@ function renderPoll() {
     radio.id = "option-" + option.id;
     radio.value = String(option.id);
     radio.disabled = !pollOpen || alreadyVoted;
+    radio.checked =
+      alreadyVoted &&
+      recordedOptionId === Number(option.id);
 
     const label = document.createElement("label");
     label.htmlFor = radio.id;
     label.textContent = option.option_text;
 
-    radio.addEventListener("change", function () {
-      selectedOptionId = option.id;
+    if (radio.checked) {
+      wrapper.classList.add("your-vote");
+      label.setAttribute("data-vote-label", "Your vote");
+    }
 
-      if (isPollOpen()) {
-        voteButton.disabled = false;
-      }
+    radio.addEventListener("change", function () {
+      selectedOptionId = Number(option.id);
+      updateVoteButtonState();
     });
 
     wrapper.appendChild(radio);
@@ -263,16 +254,14 @@ function renderPoll() {
   updateVoteButtonState();
 }
 
-/* =========================================================
-   VOTE BUTTON STATE
-   ========================================================= */
-
 function updateVoteButtonState() {
-  if (!currentPoll) {
+  if (!currentPoll || hasRecordedVote()) {
+    voteButton.hidden = hasRecordedVote();
     voteButton.disabled = true;
-    voteButton.textContent = "Unavailable";
     return;
   }
+
+  voteButton.hidden = false;
 
   if (!isPollOpen()) {
     voteButton.disabled = true;
@@ -280,36 +269,24 @@ function updateVoteButtonState() {
     return;
   }
 
-  if (hasVotedLocally(currentPoll.id)) {
-    voteButton.disabled = true;
-    voteButton.textContent = "Vote Recorded";
-    return;
-  }
-
   voteButton.disabled = selectedOptionId === null;
   voteButton.textContent = "Vote";
 }
-
-/* =========================================================
-   SUBMIT VOTE
-   ========================================================= */
 
 voteButton.addEventListener("click", submitVote);
 
 async function submitVote() {
   clearTemporaryMessages();
 
-  if (!currentPoll || selectedOptionId === null) {
+  if (
+    !currentPoll ||
+    selectedOptionId === null ||
+    hasRecordedVote()
+  ) {
     return;
   }
 
   if (!isPollOpen()) {
-    updateVoteButtonState();
-    await loadResults();
-    return;
-  }
-
-  if (hasVotedLocally(currentPoll.id)) {
     updateVoteButtonState();
     await loadResults();
     return;
@@ -318,54 +295,53 @@ async function submitVote() {
   voteButton.disabled = true;
   voteButton.textContent = "Submitting...";
 
-  const voterKey = getVoterKey();
-
   try {
-    const voteResponse = await supabaseClient
-      .from("votes")
-      .insert({
-        poll_id: currentPoll.id,
-        option_id: selectedOptionId,
-        voter_key: voterKey
-      });
-
-    if (voteResponse.error) {
-      if (voteResponse.error.code === "23505") {
-        rememberVote(currentPoll.id);
-        disableOptions();
-
-        voteButton.disabled = true;
-        voteButton.textContent =
-          "Vote Already Recorded";
-
-        await loadResults();
-
-        showTemporaryMessage(
-          "A vote from this browser has already been recorded.",
-          "success-message"
-        );
-
-        return;
+    const response = await supabaseClient.rpc(
+      "cast_poll_vote",
+      {
+        p_poll_id: currentPoll.id,
+        p_option_id: selectedOptionId,
+        p_voter_key: voterKey
       }
+    );
 
-      throw voteResponse.error;
+    if (response.error) {
+      throw response.error;
     }
 
-    rememberVote(currentPoll.id);
-    disableOptions();
+    recordedOptionId = selectedOptionId;
 
-    voteButton.disabled = true;
-    voteButton.textContent = "Vote Recorded";
-
+    renderPoll();
     await loadResults();
 
     showTemporaryMessage(
-      "Your vote has been counted.",
+      "Your vote has been recorded.",
       "success-message"
     );
   } catch (error) {
     console.error("Unable to submit vote:", error);
 
+    const message = String(
+      error && error.message ? error.message : ""
+    ).toLowerCase();
+
+    if (
+      message.includes("already voted") ||
+      message.includes("duplicate")
+    ) {
+      await loadExistingVote();
+      renderPoll();
+      await loadResults();
+
+      showTemporaryMessage(
+        "Your vote was already recorded for this poll.",
+        "success-message"
+      );
+
+      return;
+    }
+
+    voteButton.hidden = false;
     voteButton.disabled = false;
     voteButton.textContent = "Vote";
 
@@ -375,10 +351,6 @@ async function submitVote() {
     );
   }
 }
-
-/* =========================================================
-   LOAD RESULTS
-   ========================================================= */
 
 async function loadResults() {
   if (!currentPoll) {
@@ -429,16 +401,11 @@ async function loadResults() {
   }
 }
 
-/* =========================================================
-   RENDER RESULTS
-   ========================================================= */
-
 function renderResults(totals, totalVotes) {
   resultsElement.innerHTML = "";
 
   currentOptions.forEach(function (option) {
     const count = totals[option.id] || 0;
-
     const percentage =
       totalVotes > 0
         ? Math.round((count / totalVotes) * 100)
@@ -447,11 +414,19 @@ function renderResults(totals, totalVotes) {
     const row = document.createElement("div");
     row.className = "result-row";
 
+    if (recordedOptionId === Number(option.id)) {
+      row.classList.add("your-result");
+    }
+
     const topLine = document.createElement("div");
     topLine.className = "result-topline";
 
     const optionName = document.createElement("span");
-    optionName.textContent = option.option_text;
+    optionName.textContent =
+      option.option_text +
+      (recordedOptionId === Number(option.id)
+        ? " • Your Vote"
+        : "");
 
     const optionResult = document.createElement("span");
     optionResult.textContent =
@@ -491,10 +466,6 @@ function renderResults(totals, totalVotes) {
   resultsElement.appendChild(totalMessage);
 }
 
-/* =========================================================
-   COUNTDOWN
-   ========================================================= */
-
 function startCountdown() {
   if (countdownTimer) {
     window.clearInterval(countdownTimer);
@@ -522,10 +493,8 @@ function updateCountdown() {
       "Voting opens " +
       formatDate(currentPoll.opens_at);
 
-    voteButton.disabled = true;
-    voteButton.textContent = "Poll Not Open";
     disableOptions();
-
+    voteButton.hidden = true;
     return;
   }
 
@@ -533,16 +502,14 @@ function updateCountdown() {
 
   if (
     remaining <= 0 ||
-    currentPoll.status === "closed" ||
     currentPoll.status === "archived"
   ) {
     countdownElement.textContent =
       "Voting closed " +
-      formatDate(currentPoll.closes_at);
+      formatDate(currentPoll.closes_at) +
+      ". Next poll opens Monday.";
 
-    voteButton.disabled = true;
-    voteButton.textContent = "Voting Closed";
-
+    voteButton.hidden = true;
     disableOptions();
 
     if (countdownTimer) {
@@ -554,24 +521,19 @@ function updateCountdown() {
     return;
   }
 
-  const days = Math.floor(
-    remaining / 86400000
-  );
-
+  const days = Math.floor(remaining / 86400000);
   const hours = Math.floor(
     (remaining % 86400000) / 3600000
   );
-
   const minutes = Math.floor(
     (remaining % 3600000) / 60000
   );
-
   const seconds = Math.floor(
     (remaining % 60000) / 1000
   );
 
   countdownElement.textContent =
-    "Voting closes in " +
+    "Voting closes Sunday at 11:59 PM CT • " +
     days +
     "d " +
     hours +
@@ -579,12 +541,8 @@ function updateCountdown() {
     minutes +
     "m " +
     seconds +
-    "s";
+    "s remaining";
 }
-
-/* =========================================================
-   LIVE RESULTS REFRESH
-   ========================================================= */
 
 function startResultsRefresh() {
   if (resultsRefreshTimer) {
@@ -604,27 +562,20 @@ function startResultsRefresh() {
   );
 }
 
-/* =========================================================
-   DISPLAY HELPERS
-   ========================================================= */
-
 function disableOptions() {
-  const radios = optionsElement.querySelectorAll(
-    'input[type="radio"]'
-  );
-
-  radios.forEach(function (radio) {
-    radio.disabled = true;
-  });
+  optionsElement
+    .querySelectorAll('input[type="radio"]')
+    .forEach(function (radio) {
+      radio.disabled = true;
+    });
 }
 
 function showLoadingState() {
   questionElement.textContent = "Loading poll...";
   optionsElement.innerHTML = "";
   resultsElement.innerHTML = "";
-
   countdownElement.textContent = "Loading...";
-
+  voteButton.hidden = false;
   voteButton.disabled = true;
   voteButton.textContent = "Vote";
 }
@@ -635,43 +586,35 @@ function showNoPoll() {
 
   optionsElement.innerHTML = "";
   resultsElement.innerHTML = "";
-
   countdownElement.textContent =
-    "Check back soon for the next poll.";
+    "The next weekly poll opens Monday.";
 
-  voteButton.disabled = true;
-  voteButton.textContent =
-    "No Poll Available";
+  voteButton.hidden = true;
 }
 
 function showFatalError(message) {
   questionElement.textContent = "Community Poll";
-
   optionsElement.innerHTML = "";
   resultsElement.innerHTML = "";
-
   countdownElement.textContent = "";
-
-  voteButton.disabled = true;
-  voteButton.textContent = "Unavailable";
+  voteButton.hidden = true;
 
   const errorMessage = document.createElement("div");
   errorMessage.className =
     "status-message error-message";
 
   errorMessage.textContent = message;
-
   resultsElement.appendChild(errorMessage);
 }
 
 function clearTemporaryMessages() {
-  const messages = resultsElement.querySelectorAll(
-    ".success-message, .error-message"
-  );
-
-  messages.forEach(function (message) {
-    message.remove();
-  });
+  resultsElement
+    .querySelectorAll(
+      ".success-message, .error-message"
+    )
+    .forEach(function (message) {
+      message.remove();
+    });
 }
 
 function showTemporaryMessage(message, className) {
@@ -684,7 +627,6 @@ function showTemporaryMessage(message, className) {
     "status-message " + className;
 
   messageElement.textContent = message;
-
   resultsElement.prepend(messageElement);
 }
 
@@ -695,17 +637,15 @@ function formatDate(value) {
     return "at the scheduled time";
   }
 
-  return date.toLocaleString(undefined, {
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: CENTRAL_TIME_ZONE,
     month: "short",
     day: "numeric",
     year: "numeric",
     hour: "numeric",
-    minute: "2-digit"
-  });
+    minute: "2-digit",
+    timeZoneName: "short"
+  }).format(date);
 }
-
-/* =========================================================
-   START THE POLL
-   ========================================================= */
 
 initializePoll();
