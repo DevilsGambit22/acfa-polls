@@ -287,3 +287,27 @@ body {
     font-size: 15px;
   }
 }
+#voteButton[hidden] {
+  display: none !important;
+}
+
+.option.your-vote label {
+  border-color: var(--gold-light);
+  background: rgba(214, 168, 75, 0.16);
+  box-shadow: 0 0 16px rgba(214, 168, 75, 0.18);
+}
+
+.option.your-vote label::after {
+  content: attr(data-vote-label);
+  margin-left: auto;
+  color: var(--gold-light);
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+}
+
+.result-row.your-result {
+  border-color: var(--gold-light);
+  background: rgba(214, 168, 75, 0.08);
+}
