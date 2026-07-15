@@ -1,44 +1,246 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-<title>ACFA Community Poll</title>
-
-<link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="ACFA Community Suite — connected community tools for And Chess For All Official.">
+  <title>ACFA Community Suite</title>
+  <link rel="stylesheet" href="./css/styles.css">
 </head>
-
 <body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">AND CHESS FOR ALL OFFICIAL</p>
+        <h1>ACFA Community Suite</h1>
+        <p class="subtitle">Every Player Belongs • Every Move Matters</p>
+      </div>
+      <div class="connection-wrap">
+        <span id="connectionDot" class="connection-dot"></span>
+        <span id="connectionText">Checking Supabase…</span>
+      </div>
+    </header>
 
-<div class="poll-card">
+    <nav class="module-nav" aria-label="Community modules">
+      <button class="nav-button active" data-view="dashboard">Command Center</button>
+      <button class="nav-button" data-view="openings">Opening Library</button>
+      <button class="nav-button" data-view="suggestions">Suggestion Board</button>
+      <button class="nav-button" data-view="community">Community Wall</button>
+      <button class="nav-button" data-view="survey">Club Survey</button>
+      <button class="nav-button" data-view="assistant">ACFA Assistant</button>
+    </nav>
 
-    <div class="header">
-        COMMUNITY POLL
-    </div>
+    <main>
+      <section id="view-dashboard" class="view active">
+        <div class="hero-card">
+          <div>
+            <p class="eyebrow">LIVE COMMUNITY CONTROL CENTER</p>
+            <h2 id="greeting">Welcome back, ACFA</h2>
+            <p>One shared Supabase connection powers every live module below.</p>
+          </div>
+          <button id="refreshAllBtn" class="primary-button">Refresh Everything</button>
+        </div>
 
-    <div id="question" class="question">
-        Loading poll...
-    </div>
+        <div class="stats-grid">
+          <article class="stat-card"><span>Approved Openings</span><strong id="statOpenings">—</strong></article>
+          <article class="stat-card"><span>Visible Suggestions</span><strong id="statSuggestions">—</strong></article>
+          <article class="stat-card"><span>Member Locations</span><strong id="statLocations">—</strong></article>
+          <article class="stat-card"><span>Community Shoutouts</span><strong id="statShoutouts">—</strong></article>
+        </div>
 
-    <div id="options" class="options">
-    </div>
+        <div class="two-column">
+          <article class="panel">
+            <div class="panel-heading">
+              <div><p class="eyebrow">COMMAND FEED</p><h3>Latest Community Activity</h3></div>
+              <span id="lastRefresh" class="muted">Not loaded</span>
+            </div>
+            <div id="activityFeed" class="feed"><p class="empty">Loading community activity…</p></div>
+          </article>
 
-    <button id="voteButton" disabled>
-        Vote
-    </button>
+          <article class="panel">
+            <p class="eyebrow">QUICK ACTIONS</p>
+            <h3>Community Tools</h3>
+            <div class="quick-actions">
+              <button data-jump="openings" class="action-card"><span>♟</span><b>Recommend an Opening</b><small>Submit it for approval</small></button>
+              <button data-jump="suggestions" class="action-card"><span>💡</span><b>Share an Idea</b><small>Help shape ACFA</small></button>
+              <button data-jump="community" class="action-card"><span>🌎</span><b>Join the Map</b><small>Add your location</small></button>
+              <button data-jump="survey" class="action-card"><span>📊</span><b>Take the Survey</b><small>Guide future additions</small></button>
+            </div>
+          </article>
+        </div>
+      </section>
 
-    <div id="countdown" class="countdown">
-        Loading...
-    </div>
+      <section id="view-openings" class="view">
+        <div class="section-header">
+          <div><p class="eyebrow">COMMUNITY OPENING LIBRARY</p><h2>Learn From ACFA Members</h2></div>
+          <button class="primary-button" data-modal="openingModal">Recommend an Opening</button>
+        </div>
+        <div id="openingFilters" class="filter-row">
+          <button class="filter active" data-opening-filter="All">All</button>
+          <button class="filter" data-opening-filter="White">White</button>
+          <button class="filter" data-opening-filter="Black">Black</button>
+          <button class="filter" data-opening-filter="Either">Either</button>
+        </div>
+        <div id="openingsGrid" class="card-grid"><p class="empty">Loading openings…</p></div>
+      </section>
 
-    <div id="results" class="results">
-    </div>
+      <section id="view-suggestions" class="view">
+        <div class="section-header">
+          <div><p class="eyebrow">MEMBER IDEA BOARD</p><h2>Help Build What Comes Next</h2></div>
+          <button class="primary-button" data-modal="suggestionModal">Submit Suggestion</button>
+        </div>
+        <div id="suggestionsGrid" class="card-grid"><p class="empty">Loading suggestions…</p></div>
+      </section>
 
-</div>
+      <section id="view-community" class="view">
+        <div class="section-header">
+          <div><p class="eyebrow">ACFA COMMUNITY WALL</p><h2>Celebrate the People Behind the Pieces</h2></div>
+        </div>
+        <div class="three-column">
+          <article class="panel">
+            <p class="eyebrow">WORLD MEMBER MAP</p><h3>Where ACFA Plays</h3>
+            <form id="locationForm" class="stack-form">
+              <input name="username" placeholder="Chess.com username" required maxlength="50">
+              <input name="country" placeholder="Country" required maxlength="80">
+              <input name="region" placeholder="State / region (optional)" maxlength="100">
+              <button class="primary-button" type="submit">Save My Location</button>
+            </form>
+            <div id="locationsList" class="compact-list"></div>
+          </article>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="app.js"></script>
+          <article class="panel">
+            <p class="eyebrow">BIRTHDAY WALL</p><h3>Celebrate Members</h3>
+            <form id="birthdayForm" class="stack-form">
+              <input name="username" placeholder="Chess.com username" required maxlength="50">
+              <div class="split-inputs">
+                <select name="month" required><option value="">Month</option></select>
+                <select name="day" required><option value="">Day</option></select>
+              </div>
+              <button class="primary-button" type="submit">Save Birthday</button>
+            </form>
+            <div id="birthdaysList" class="compact-list"></div>
+          </article>
 
+          <article class="panel">
+            <p class="eyebrow">MEMBER SHOUTOUTS</p><h3>Recognize Someone</h3>
+            <form id="shoutoutForm" class="stack-form">
+              <input name="from_username" placeholder="Your username" required maxlength="50">
+              <input name="to_username" placeholder="Member username" required maxlength="50">
+              <textarea name="message" placeholder="Why are you recognizing them?" required maxlength="500"></textarea>
+              <button class="primary-button" type="submit">Submit Shoutout</button>
+            </form>
+            <div id="shoutoutsList" class="compact-list"></div>
+          </article>
+        </div>
+      </section>
+
+      <section id="view-survey" class="view">
+        <div class="section-header">
+          <div><p class="eyebrow">CLUB SURVEY</p><h2>Guide ACFA’s Next Move</h2></div>
+        </div>
+        <article class="panel survey-panel">
+          <div id="surveyIntro"><p class="muted">Loading current survey…</p></div>
+          <form id="surveyForm" class="stack-form hidden">
+            <input name="username" placeholder="Chess.com username (optional)" maxlength="50">
+            <label>Satisfaction with ACFA
+              <select name="satisfaction" required>
+                <option value="">Choose 1–5</option>
+                <option value="1">1 — Needs major improvement</option>
+                <option value="2">2 — Needs improvement</option>
+                <option value="3">3 — Good</option>
+                <option value="4">4 — Very good</option>
+                <option value="5">5 — Excellent</option>
+              </select>
+            </label>
+            <input name="favorite_activity" placeholder="Favorite ACFA activity" maxlength="120">
+            <textarea name="improvement" placeholder="What should ACFA improve?" maxlength="1500"></textarea>
+            <textarea name="next_feature" placeholder="What should we add next?" maxlength="1500"></textarea>
+            <button class="primary-button" type="submit">Submit Survey</button>
+          </form>
+        </article>
+      </section>
+
+      <section id="view-assistant" class="view">
+        <div class="section-header">
+          <div><p class="eyebrow">ACFA ASSISTANT EDITION</p><h2>Forum Message Builder</h2></div>
+        </div>
+        <div class="two-column">
+          <article class="panel">
+            <form id="messageBuilderForm" class="stack-form">
+              <label>Message type
+                <select name="type">
+                  <option value="announcement">Club Announcement</option>
+                  <option value="invitation">Club Invitation</option>
+                  <option value="event">Event Promotion</option>
+                  <option value="spotlight">Member Spotlight</option>
+                  <option value="poll">Poll Promotion</option>
+                </select>
+              </label>
+              <input name="headline" placeholder="Headline" required maxlength="100">
+              <textarea name="body" placeholder="Main message" required maxlength="1200"></textarea>
+              <input name="buttonLabel" value="Join ACFA Official" placeholder="Primary button label">
+              <input name="buttonUrl" value="https://www.chess.com/club/and-chess-for-all-official" placeholder="Primary button URL">
+              <label class="checkbox-row"><input name="discord" type="checkbox" checked> Include Discord button</label>
+              <label class="checkbox-row"><input name="twitch" type="checkbox" checked> Include Twitch button</label>
+              <div class="button-row">
+                <button class="primary-button" type="submit">Generate Message</button>
+                <button id="saveTemplateBtn" class="secondary-button" type="button">Save Template</button>
+              </div>
+            </form>
+          </article>
+          <article class="panel">
+            <div class="output-tabs">
+              <button class="output-tab active" data-output="html">Chess.com HTML</button>
+              <button class="output-tab" data-output="plain">Plain Text</button>
+            </div>
+            <textarea id="messageOutput" class="code-output" readonly placeholder="Your generated message will appear here."></textarea>
+            <button id="copyOutputBtn" class="primary-button full-width">Copy Output</button>
+            <div class="template-heading"><h3>Saved Templates</h3><button id="clearTemplatesBtn" class="text-button">Clear</button></div>
+            <div id="templateList" class="compact-list"></div>
+          </article>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <p>ACFA Community Suite v2 • Shared Supabase architecture • Built for And Chess For All Official</p>
+    </footer>
+  </div>
+
+  <dialog id="openingModal" class="modal">
+    <form id="openingForm" method="dialog" class="modal-card">
+      <button type="button" class="modal-close" data-close="openingModal">×</button>
+      <p class="eyebrow">OPENING LIBRARY</p><h2>Recommend an Opening</h2>
+      <input name="username" placeholder="Chess.com username" required maxlength="50">
+      <input name="opening_name" placeholder="Opening name" required maxlength="120">
+      <div class="split-inputs">
+        <select name="color" required><option>White</option><option>Black</option><option>Either</option></select>
+        <select name="difficulty" required><option>Beginner</option><option>Intermediate</option><option>Advanced</option></select>
+      </div>
+      <input name="eco_code" placeholder="ECO code (optional)" maxlength="12">
+      <textarea name="recommendation" placeholder="Why do you recommend it?" required maxlength="1000"></textarea>
+      <input name="resource_url" type="url" placeholder="Learning resource URL (optional)" maxlength="500">
+      <button class="primary-button" type="submit">Submit for Approval</button>
+    </form>
+  </dialog>
+
+  <dialog id="suggestionModal" class="modal">
+    <form id="suggestionForm" method="dialog" class="modal-card">
+      <button type="button" class="modal-close" data-close="suggestionModal">×</button>
+      <p class="eyebrow">SUGGESTION BOARD</p><h2>Submit an Idea</h2>
+      <input name="username" placeholder="Chess.com username" required maxlength="50">
+      <select name="category" required>
+        <option>Events</option><option>Matches</option><option>Forums</option><option>Streaming</option>
+        <option>Community</option><option>Website</option><option>Club Rules</option><option>Other</option>
+      </select>
+      <input name="title" placeholder="Suggestion title" required maxlength="120">
+      <textarea name="description" placeholder="Describe your idea" required maxlength="1500"></textarea>
+      <button class="primary-button" type="submit">Submit for Approval</button>
+    </form>
+  </dialog>
+
+  <div id="toast" class="toast" role="status"></div>
+
+  <script type="module" src="./js/app.js"></script>
 </body>
 </html>
